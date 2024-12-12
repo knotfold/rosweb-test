@@ -7,41 +7,70 @@
     <p>Received Message: {{ receivedMessage }}</p>
   </div>
 </template>
-
 <script>
-
+import ROSLIB from "roslib";
 export default {
   data() {
     return {
       connectionStatus: "Disconnected",
+      ros: null,
+      topic: null,
+      messageToSend: "",
+      receivedMessage: "",
     };
   },
   methods: {
-    testWebSocketConnection() {
-      const socket = new WebSocket("wss://192.168.1.63:9090");
-
-      socket.onopen = () => {
+    connectToRos() {
+      // Initialize ROS connection
+      this.ros = new ROSLIB.Ros({
+        url: "ws://localhost:9090", // Replace with your ROS bridge WebSocket URL
+      });
+      // Handle connection events
+      this.ros.on("connection", () => {
         this.connectionStatus = "Connected";
-        console.log("WebSocket connected");
-      };
-
-      socket.onerror = (error) => {
+        console.log("Connected to ROS Bridge");
+        this.subscribeToTopic();
+      });
+      this.ros.on("error", (error) => {
         this.connectionStatus = "Error";
-        console.error("WebSocket error:", error);
-      };
-
-      socket.onclose = () => {
+        console.error("Error connecting to ROS Bridge:", error);
+      });
+      this.ros.on("close", () => {
         this.connectionStatus = "Disconnected";
-        console.log("WebSocket disconnected");
-      };
+        console.log("Disconnected from ROS Bridge");
+      });
+    },
+    subscribeToTopic() {
+      // Create a topic object
+      this.topic = new ROSLIB.Topic({
+        ros: this.ros,
+        name: "/example_topic", // Replace with your topic name
+        messageType: "std_msgs/String", // Replace with your message type
+      });
+      // Subscribe to the topic
+      this.topic.subscribe((message) => {
+        this.receivedMessage = message.data;
+        console.log("Received message:", message);
+      });
+    },
+    publishMessage() {
+      if (!this.topic) {
+        console.error("Topic not initialized");
+        return;
+      }
+      // Create a message object
+      const message = new ROSLIB.Message({
+        data: this.messageToSend,
+      });
+      // Publish the message
+      this.topic.publish(message);
+      console.log("Published message:", this.messageToSend);
     },
   },
   mounted() {
-    this.testWebSocketConnection();
+    this.connectToRos();
   },
 };
-
-
 </script>
 
 
